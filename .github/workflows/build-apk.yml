@@ -5,11 +5,11 @@ on:
   push:
 
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download repository
+      - name: Check out repository
         uses: actions/checkout@v6
 
       - name: Set up Java
@@ -18,8 +18,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.13'
 
       - name: Unpack AmazeGoBot
         run: |
@@ -27,32 +29,17 @@ jobs:
           mkdir phonebuild
           unzip -q AmazeGoBot-PhoneBuild.zip -d phonebuild
 
-      - name: Find Android project
-        run: |
-          echo "Looking for Gradle project..."
-          find phonebuild -name gradlew -type f -print
-
       - name: Build APK
-        run: |
-          PROJECT=$(dirname "$(find phonebuild -name gradlew -type f | head -n 1)")
-          if [ -z "$PROJECT" ]; then
-            echo "ERROR: No Gradle wrapper (gradlew) was found in the ZIP."
-            echo "The ZIP does not appear to contain a complete Android Gradle project."
-            exit 1
-          fi
+        working-directory: phonebuild
+        run: gradle --no-daemon assembleDebug
 
-          cd "$PROJECT"
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
-
-      - name: Find APK
+      - name: Show APK
         run: |
-          echo "APK files found:"
-          find phonebuild -type f -name "*.apk" -print
+          find phonebuild/app/build/outputs/apk/debug -type f -name "*.apk" -print
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AmazeGoBot-APK
-          path: phonebuild/**/build/outputs/apk/**/*.apk
+          name: AmazeGoBot-debug
+          path: phonebuild/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
